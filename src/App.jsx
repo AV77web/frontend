@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import "./index.css";
 import BombHeader from "./components/BombHeader";
@@ -79,6 +79,9 @@ function App() {
   const [myGameOver, setMyGameOver] = useState(false);
   const [opponentGameWon, setOpponentGameWon] = useState(false);
   const [opponentGameOver, setOpponentGameOver] = useState(false);
+
+  // Ref per tracciare se la partita è stata iniziata da handleGameStart
+  const isGameStartedRef = useRef(false);
 
   // Gestione Finestra
   const handleCloseModal = () => {
@@ -225,8 +228,24 @@ function App() {
   // Gestisce l'inizio della partita 1vs1
   const handleGameStart = (data) => {
     console.log("[VERSUS] Partita iniziata:", data);
-    setOpponent(data.opponent);
+    // Segna che la partita è stata iniziata da handleGameStart
+    isGameStartedRef.current = true;
+    // Imposta gameId e opponent
     setGameId(data.gameId);
+    setOpponent(data.opponent);
+    // Reset stati versus prima di impostare la modalità
+    setMySecretCode([]);
+    setMyGuesses([]);
+    setOpponentGuesses([]);
+    setMyCodeSet(false);
+    setOpponentCodeSet(false);
+    setMyGameWon(false);
+    setMyGameOver(false);
+    setOpponentGameWon(false);
+    setOpponentGameOver(false);
+    setTempCode(Array(4).fill(null));
+    setTimeLeft(0);
+    // Ora imposta la modalità (questo scatenerà useEffect ma isGameStartedRef impedirà il reset di gameId)
     setMode("versus");
     // Entrambi devono impostare il codice
     setIsSettingCode(true);
@@ -247,19 +266,38 @@ function App() {
     setTempCode(Array(4).fill(null));
 
     if (mode === "versus") {
-      // Reset stati versus
-      setMySecretCode([]);
-      setMyGuesses([]);
-      setOpponentGuesses([]);
-      setMyCodeSet(false);
-      setOpponentCodeSet(false);
-      setMyGameWon(false);
-      setMyGameOver(false);
-      setOpponentGameWon(false);
-      setOpponentGameOver(false);
-      setGameId(null);
-      setTimeLeft(0);
-      setIsSettingCode(true);
+      // Se la partita è stata iniziata da handleGameStart, non resettare gameId e opponent
+      if (isGameStartedRef.current) {
+        // Resetta solo gli stati di gioco, ma mantieni gameId, opponent e isSettingCode
+        setMySecretCode([]);
+        setMyGuesses([]);
+        setOpponentGuesses([]);
+        setMyCodeSet(false);
+        setOpponentCodeSet(false);
+        setMyGameWon(false);
+        setMyGameOver(false);
+        setOpponentGameWon(false);
+        setOpponentGameOver(false);
+        setTempCode(Array(4).fill(null));
+        setTimeLeft(0);
+        // Reset del flag dopo averlo usato
+        isGameStartedRef.current = false;
+      } else {
+        // Reset completo quando si cambia modalità manualmente
+        setMySecretCode([]);
+        setMyGuesses([]);
+        setOpponentGuesses([]);
+        setMyCodeSet(false);
+        setOpponentCodeSet(false);
+        setMyGameWon(false);
+        setMyGameOver(false);
+        setOpponentGameWon(false);
+        setOpponentGameOver(false);
+        setGameId(null);
+        setOpponent(null);
+        setTimeLeft(0);
+        setIsSettingCode(true);
+      }
     } else {
       // normal / devil → codice random
       setSecretCode(
@@ -372,6 +410,7 @@ function App() {
 
   const resetGame = () => {
     // Reset anche stati versus
+    isGameStartedRef.current = false;
     setGameId(null);
     setOpponent(null);
     setMySecretCode([]);
