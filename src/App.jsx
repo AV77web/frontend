@@ -82,6 +82,8 @@ function App() {
 
   // Ref per tracciare se la partita è stata iniziata da handleGameStart
   const isGameStartedRef = useRef(false);
+  // Ref per gameId che viene aggiornato immediatamente (per evitare problemi di timing)
+  const gameIdRef = useRef(null);
 
   // Gestione Finestra
   const handleCloseModal = () => {
@@ -228,9 +230,11 @@ function App() {
   // Gestisce l'inizio della partita 1vs1
   const handleGameStart = (data) => {
     console.log("[VERSUS] Partita iniziata:", data);
+    console.log("[VERSUS] gameId ricevuto:", data.gameId);
     // Segna che la partita è stata iniziata da handleGameStart
     isGameStartedRef.current = true;
-    // Imposta gameId e opponent
+    // Imposta gameId sia nello stato che nel ref (ref per accesso immediato)
+    gameIdRef.current = data.gameId;
     setGameId(data.gameId);
     setOpponent(data.opponent);
     // Reset stati versus prima di impostare la modalità
@@ -293,6 +297,7 @@ function App() {
         setMyGameOver(false);
         setOpponentGameWon(false);
         setOpponentGameOver(false);
+        gameIdRef.current = null;
         setGameId(null);
         setOpponent(null);
         setTimeLeft(0);
@@ -344,14 +349,27 @@ function App() {
       // Modalità versus: invia il tentativo via socket
       if (!currentGuess.every((c) => c !== null)) return;
       if (myGameWon || myGameOver || myGuesses.length >= MAX_TURNS) return;
-      if (!gameId || !socket) {
-        console.error("[VERSUS] gameId o socket non disponibili");
+
+      // Usa gameIdRef per accesso immediato
+      const currentGameId = gameIdRef.current || gameId;
+
+      if (!currentGameId || !socket) {
+        console.error("[VERSUS] gameId o socket non disponibili", {
+          gameId: currentGameId,
+          gameIdRef: gameIdRef.current,
+          socket: !!socket,
+        });
         return;
       }
 
-      console.log("[VERSUS] Invio tentativo:", currentGuess);
+      console.log(
+        "[VERSUS] Invio tentativo:",
+        currentGuess,
+        "con gameId:",
+        currentGameId
+      );
       socket.emit("submit_guess", {
-        gameId,
+        gameId: currentGameId,
         guess: currentGuess,
       });
 
@@ -411,6 +429,7 @@ function App() {
   const resetGame = () => {
     // Reset anche stati versus
     isGameStartedRef.current = false;
+    gameIdRef.current = null;
     setGameId(null);
     setOpponent(null);
     setMySecretCode([]);
@@ -441,14 +460,26 @@ function App() {
       setMySecretCode(tempCode);
       setMyCodeSet(true);
 
-      if (socket && gameId) {
-        console.log("[VERSUS] Invio codice segreto:", tempCode);
+      // Usa gameIdRef per accesso immediato (evita problemi di timing con lo stato)
+      const currentGameId = gameIdRef.current || gameId;
+
+      if (socket && currentGameId) {
+        console.log(
+          "[VERSUS] Invio codice segreto:",
+          tempCode,
+          "con gameId:",
+          currentGameId
+        );
         socket.emit("set_secret_code", {
-          gameId,
+          gameId: currentGameId,
           secretCode: tempCode,
         });
       } else {
-        console.error("[VERSUS] Socket o gameId non disponibili");
+        console.error("[VERSUS] Socket o gameId non disponibili", {
+          socket: !!socket,
+          gameId: currentGameId,
+          gameIdRef: gameIdRef.current,
+        });
       }
 
       // Non cambiare isSettingCode qui - aspetta che anche l'avversario imposti il codice
