@@ -14,7 +14,7 @@ import { UserList } from "./components/UserList";
 import { API_URLS, API_BASE_URL } from "./config";
 import Btn from "./components/Btn/Btn";
 import RulesOfGameDefault from "./components/RulesOfGameDefault";
-import { Leaderboard } from "./components/Leaderboard"
+import { Leaderboard } from "./components/Leaderboard";
 
 const COLORS_BOMB = [
   "#ef4444",
@@ -23,7 +23,7 @@ const COLORS_BOMB = [
   "#f59e0b",
   "#ec4899",
   "#06b6d4",
-]
+];
 const MAX_TURNS = 10;
 const SOCKET_URL = API_BASE_URL; // Usa l'URL dinamico dal config
 
@@ -68,10 +68,10 @@ function App() {
   const [isRulesOfGame, setIsRulesOfGame] = useState(false); // apre la modale con la spiegazione delle regole di gioco
   const [isLeaderboard, setIsLeaderboard] = useState(false); // apre la classifica
 
-  // Gestione Finestra 
+  // Gestione Finestra
   const handleCloseModal = () => {
-    setIsRulesOfGame(false)
-  }
+    setIsRulesOfGame(false);
+  };
 
   const handleLogout = async () => {
     // 1. Notifica il backend per aggiornare lo stato DB
@@ -144,7 +144,7 @@ function App() {
     setMode("versus");
     // Se il ruolo è 'maker', devo impostare il codice (isSettingCode = true)
     // Se il ruolo è 'breaker', aspetto (isSettingCode = false)
-    setIsSettingCode(data.role === 'maker');
+    setIsSettingCode(data.role === "maker");
   };
 
   // inizializza partita quando scelgo una modalità
@@ -253,7 +253,6 @@ function App() {
 
   /*  if (true) return <Modal /> */
 
-
   const resetGame = () => {
     // torna al menu principale
     setMode(null);
@@ -276,7 +275,7 @@ function App() {
   const handleLoginSuccess = (user) => {
     console.log("Dati utenti ricevuti dal Login:", user);
     setLogged(true);
-    setCurrentUser(typeof user === "string" ? user : (user?.username || "Guest"));
+    setCurrentUser(typeof user === "string" ? user : user?.username || "Guest");
     setRegisterView(false); // Assicura di tornare alla vista di gioco
   };
 
@@ -296,7 +295,20 @@ function App() {
 
   // Mostra una schermata di caricamento mentre verifichiamo il cookie
   if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white', fontSize: '1.5rem' }}>Caricamento...</div>;
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          color: "white",
+          fontSize: "1.5rem",
+        }}
+      >
+        Caricamento...
+      </div>
+    );
   }
 
   // Mostra la classifica se lo stato è attivo
@@ -326,12 +338,15 @@ function App() {
     <div className="page-wrapper">
       <div className="mode-menu">
         <h1 className="menu-title">MASTERMIND SCAM</h1>
-        <p className="menu-subtitle">Scegli la modalità o <Btn variant="simple" onClick={() => setIsRulesOfGame(true)}>IMPARA LE REGOLE DI GIOCO</Btn></p>
+        <p className="menu-subtitle">
+          Scegli la modalità o{" "}
+          <Btn variant="simple" onClick={() => setIsRulesOfGame(true)}>
+            IMPARA LE REGOLE DI GIOCO
+          </Btn>
+        </p>
 
         {/* REGOLE DEL GIOCO */}
-        {isRulesOfGame && (<RulesOfGameDefault onClose={handleCloseModal} />)}
-
-
+        {isRulesOfGame && <RulesOfGameDefault onClose={handleCloseModal} />}
 
         <button className="menu-btn" onClick={() => setMode("normal")}>
           Modalità Normale
@@ -345,7 +360,11 @@ function App() {
             }
             setMode("versus");
           }}
-          style={currentUser === "Guest" ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+          style={
+            currentUser === "Guest"
+              ? { opacity: 0.5, cursor: "not-allowed" }
+              : {}
+          }
         >
           1 vs 1 (Codemaker / Codebreaker) {currentUser === "Guest" && "🔒"}
         </button>
@@ -359,11 +378,15 @@ function App() {
               alert("This ranking is reserved to registered users only!");
               return;
             }
-            setIsLeaderboard(true)
+            setIsLeaderboard(true);
           }}
-          style={currentUser === "Guest" ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+          style={
+            currentUser === "Guest"
+              ? { opacity: 0.5, cursor: "not-allowed" }
+              : {}
+          }
         >
-          Ranking { currentUser === "Guest" && "🔒"}
+          Ranking {currentUser === "Guest" && "🔒"}
         </button>
         <button
           className="menu-btn"
@@ -374,7 +397,7 @@ function App() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: "8px"
+            gap: "8px",
           }}
         >
           <LogoutIcon />
@@ -404,7 +427,7 @@ function App() {
           onBack={() => setMode(null)}
         />
 
-        <div style={{ color: 'white' }}>Setup contro {opponent} (WIP)</div>
+        {/*<div style={{ color: 'white' }}>Setup contro {opponent} (WIP)</div>*/}
       </>
     )
   ) : (
@@ -417,8 +440,7 @@ function App() {
               ← Torna alla scelta modalità
             </button>
           </div>
-        )
-        }
+        )}
         <BombHeader
           minutes={minutes}
           seconds={seconds}
@@ -426,33 +448,31 @@ function App() {
           maxTurns={MAX_TURNS}
           mode={mode}
         />
-        {
-          (!gameWon && !gameOver) ? (
-            <GameBoard
-              guesses={guesses}
-              currentGuess={currentGuess}
-              colors={COLORS_BOMB}
-              canPlay={guesses.length < MAX_TURNS}
-              onPegClick={addPeg}
-              selectedColor={selectedColor}
-              onSelectColor={setSelectedColor}
-              mainButtonLabel={mainButtonLabel}
-              mainButtonDisabled={mainButtonDisabled}
-              mainButtonOnClick={mainButtonOnClick}
-            />
-          ) : (
-            <EndScreen
-              gameWon={gameWon}
-              gameOverReason={gameOverReason}
-              guessesCount={guesses.length}
-              secretCode={secretCode}
-              onReset={resetGame}
-              colors={COLORS_BOMB}
-            />
-          )
-        }
-      </div >
-    </div >
+        {!gameWon && !gameOver ? (
+          <GameBoard
+            guesses={guesses}
+            currentGuess={currentGuess}
+            colors={COLORS_BOMB}
+            canPlay={guesses.length < MAX_TURNS}
+            onPegClick={addPeg}
+            selectedColor={selectedColor}
+            onSelectColor={setSelectedColor}
+            mainButtonLabel={mainButtonLabel}
+            mainButtonDisabled={mainButtonDisabled}
+            mainButtonOnClick={mainButtonOnClick}
+          />
+        ) : (
+          <EndScreen
+            gameWon={gameWon}
+            gameOverReason={gameOverReason}
+            guessesCount={guesses.length}
+            secretCode={secretCode}
+            onReset={resetGame}
+            colors={COLORS_BOMB}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
