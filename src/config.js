@@ -2,7 +2,7 @@ const isDevelopment = import.meta.env.MODE === 'development';
 
 export const API_BASE_URL = isDevelopment
     ? "http://localhost:3000"
-    : "https://backend-21ia.onrender.com";
+    : "https://backend-jrp0.onrender.com";
 
 
 export const API_URLS = {
