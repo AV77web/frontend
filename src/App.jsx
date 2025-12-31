@@ -68,6 +68,18 @@ function App() {
   const [isRulesOfGame, setIsRulesOfGame] = useState(false); // apre la modale con la spiegazione delle regole di gioco
   const [isLeaderboard, setIsLeaderboard] = useState(false); // apre la classifica
 
+  // Nuovi stati per modalità versus simultanea
+  const [gameId, setGameId] = useState(null);
+  const [mySecretCode, setMySecretCode] = useState([]); // Il mio codice segreto
+  const [myGuesses, setMyGuesses] = useState([]); // I miei tentativi verso il codice dell'avversario
+  const [opponentGuesses, setOpponentGuesses] = useState([]); // Tentativi dell'avversario verso il mio codice
+  const [myCodeSet, setMyCodeSet] = useState(false);
+  const [opponentCodeSet, setOpponentCodeSet] = useState(false);
+  const [myGameWon, setMyGameWon] = useState(false);
+  const [myGameOver, setMyGameOver] = useState(false);
+  const [opponentGameWon, setOpponentGameWon] = useState(false);
+  const [opponentGameOver, setOpponentGameOver] = useState(false);
+
   // Gestione Finestra
   const handleCloseModal = () => {
     setIsRulesOfGame(false);
@@ -138,13 +150,86 @@ function App() {
     }
   }, [isLogged, currentUser]);
 
-  // Gestisce l'inizio della partita 1vs1 attivato da UserList
+  // Listener per eventi socket nella modalità versus
+  useEffect(() => {
+    if (!socket || mode !== "versus" || !gameId) return;
+
+    const handleOpponentCodeSet = () => {
+      setOpponentCodeSet(true);
+      console.log("[VERSUS] Avversario ha impostato il codice");
+    };
+
+    const handleBothCodesSet = () => {
+      console.log("[VERSUS] Entrambi i codici impostati, inizia la partita");
+      setIsSettingCode(false);
+    };
+
+    const handleGuessFeedback = ({ guessData, isWin, gameOver }) => {
+      console.log("[VERSUS] Feedback ricevuto:", {
+        guessData,
+        isWin,
+        gameOver,
+      });
+      setMyGuesses((prev) => [...prev, guessData]);
+      if (isWin) {
+        setMyGameWon(true);
+      }
+      if (gameOver) {
+        setMyGameOver(true);
+      }
+    };
+
+    const handleOpponentGuess = ({ guessData }) => {
+      console.log("[VERSUS] Tentativo avversario ricevuto:", guessData);
+      setOpponentGuesses((prev) => [...prev, guessData]);
+    };
+
+    const handleOpponentGameStatus = ({ opponentWon, opponentLost }) => {
+      console.log("[VERSUS] Stato avversario:", { opponentWon, opponentLost });
+      if (opponentWon) {
+        setOpponentGameWon(true);
+      }
+      if (opponentLost) {
+        setOpponentGameOver(true);
+      }
+    };
+
+    const handleOpponentDisconnected = () => {
+      alert("L'avversario si è disconnesso. La partita è terminata.");
+      resetGame();
+    };
+
+    const handleGuessError = ({ error }) => {
+      alert(`Errore: ${error}`);
+    };
+
+    socket.on("opponent_code_set", handleOpponentCodeSet);
+    socket.on("both_codes_set", handleBothCodesSet);
+    socket.on("guess_feedback", handleGuessFeedback);
+    socket.on("opponent_guess", handleOpponentGuess);
+    socket.on("opponent_game_status", handleOpponentGameStatus);
+    socket.on("opponent_disconnected", handleOpponentDisconnected);
+    socket.on("guess_error", handleGuessError);
+
+    return () => {
+      socket.off("opponent_code_set", handleOpponentCodeSet);
+      socket.off("both_codes_set", handleBothCodesSet);
+      socket.off("guess_feedback", handleGuessFeedback);
+      socket.off("opponent_guess", handleOpponentGuess);
+      socket.off("opponent_game_status", handleOpponentGameStatus);
+      socket.off("opponent_disconnected", handleOpponentDisconnected);
+      socket.off("guess_error", handleGuessError);
+    };
+  }, [socket, mode, gameId]);
+
+  // Gestisce l'inizio della partita 1vs1
   const handleGameStart = (data) => {
+    console.log("[VERSUS] Partita iniziata:", data);
     setOpponent(data.opponent);
+    setGameId(data.gameId);
     setMode("versus");
-    // Se il ruolo è 'maker', devo impostare il codice (isSettingCode = true)
-    // Se il ruolo è 'breaker', aspetto (isSettingCode = false)
-    setIsSettingCode(data.role === "maker");
+    // Entrambi devono impostare il codice
+    setIsSettingCode(true);
   };
 
   // inizializza partita quando scelgo una modalità
@@ -162,8 +247,17 @@ function App() {
     setTempCode(Array(4).fill(null));
 
     if (mode === "versus") {
-      // in 1 vs 1 il codice viene scelto dal Giocatore 1
-      setSecretCode([]);
+      // Reset stati versus
+      setMySecretCode([]);
+      setMyGuesses([]);
+      setOpponentGuesses([]);
+      setMyCodeSet(false);
+      setOpponentCodeSet(false);
+      setMyGameWon(false);
+      setMyGameOver(false);
+      setOpponentGameWon(false);
+      setOpponentGameOver(false);
+      setGameId(null);
       setTimeLeft(0);
       setIsSettingCode(true);
     } else {
@@ -195,31 +289,54 @@ function App() {
   }, [timeLeft, gameWon, gameOver, mode, hasStarted]);
 
   const addPeg = (index) => {
-    if (gameWon || gameOver || guesses.length >= MAX_TURNS) return;
+    // Per modalità versus, controlla myGameWon/myGameOver invece di gameWon/gameOver
+    if (mode === "versus") {
+      if (myGameWon || myGameOver || myGuesses.length >= MAX_TURNS) return;
+    } else {
+      if (gameWon || gameOver || guesses.length >= MAX_TURNS) return;
+    }
+
     setCurrentGuess((prev) =>
       prev.map((val, i) => (i === index ? selectedColor : val))
     );
   };
 
   const submitGuess = () => {
-    if (gameWon || gameOver || guesses.length >= MAX_TURNS) return;
-    if (!currentGuess.every((c) => c !== null)) return;
+    if (mode === "versus") {
+      // Modalità versus: invia il tentativo via socket
+      if (!currentGuess.every((c) => c !== null)) return;
+      if (myGameWon || myGameOver || myGuesses.length >= MAX_TURNS) return;
+      if (!gameId || !socket) {
+        console.error("[VERSUS] gameId o socket non disponibili");
+        return;
+      }
 
-    const feedback = calculateFeedback(secretCode, currentGuess);
-    const newGuesses = [...guesses, { guess: currentGuess, feedback }];
-    setGuesses(newGuesses);
-    setCurrentGuess(Array(4).fill(null));
+      console.log("[VERSUS] Invio tentativo:", currentGuess);
+      socket.emit("submit_guess", {
+        gameId,
+        guess: currentGuess,
+      });
 
-    // vittoria solo se il tentativo coincide col codice
-    if (currentGuess.every((val, idx) => val === secretCode[idx])) {
-      setGameWon(true);
-      return;
-    }
+      setCurrentGuess(Array(4).fill(null));
+    } else {
+      // Modalità normale/devil: logica locale
+      if (gameWon || gameOver || guesses.length >= MAX_TURNS) return;
+      if (!currentGuess.every((c) => c !== null)) return;
 
-    // esplosione per tentativi finiti
-    if (newGuesses.length >= MAX_TURNS) {
-      setGameOver(true);
-      setGameOverReason("turns");
+      const feedback = calculateFeedback(secretCode, currentGuess);
+      const newGuesses = [...guesses, { guess: currentGuess, feedback }];
+      setGuesses(newGuesses);
+      setCurrentGuess(Array(4).fill(null));
+
+      if (currentGuess.every((val, idx) => val === secretCode[idx])) {
+        setGameWon(true);
+        return;
+      }
+
+      if (newGuesses.length >= MAX_TURNS) {
+        setGameOver(true);
+        setGameOverReason("turns");
+      }
     }
   };
 
@@ -254,6 +371,18 @@ function App() {
   /*  if (true) return <Modal /> */
 
   const resetGame = () => {
+    // Reset anche stati versus
+    setGameId(null);
+    setOpponent(null);
+    setMySecretCode([]);
+    setMyGuesses([]);
+    setOpponentGuesses([]);
+    setMyCodeSet(false);
+    setOpponentCodeSet(false);
+    setMyGameWon(false);
+    setMyGameOver(false);
+    setOpponentGameWon(false);
+    setOpponentGameOver(false);
     // torna al menu principale
     setMode(null);
   };
@@ -267,9 +396,31 @@ function App() {
 
   const confirmSecretCode = () => {
     if (!tempCode.every((c) => c !== null)) return;
-    setSecretCode(tempCode);
-    setIsSettingCode(false);
-    // Giocatore 2 inizia a giocare, nessun timer in 1 vs 1
+
+    if (mode === "versus") {
+      // Invia il codice segreto al server
+      setMySecretCode(tempCode);
+      setMyCodeSet(true);
+
+      if (socket && gameId) {
+        console.log("[VERSUS] Invio codice segreto:", tempCode);
+        socket.emit("set_secret_code", {
+          gameId,
+          secretCode: tempCode,
+        });
+      } else {
+        console.error("[VERSUS] Socket o gameId non disponibili");
+      }
+
+      // Non cambiare isSettingCode qui - aspetta che anche l'avversario imposti il codice
+      // Il socket controller notificherà quando entrambi hanno impostato
+    } else {
+      // Modalità normale (non dovrebbe arrivare qui in versus)
+      setSecretCode(tempCode);
+      setIsSettingCode(false);
+    }
+
+    setTempCode(Array(4).fill(null));
   };
 
   const handleLoginSuccess = (user) => {
@@ -282,16 +433,31 @@ function App() {
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const seconds = String(timeLeft % 60).padStart(2, "0");
 
-  const mainButtonDisabled =
-    mode === "devil" && !hasStarted
-      ? false
-      : gameWon || gameOver || !currentGuess.every((c) => c !== null);
+  // Calcola i valori per il bottone principale in base alla modalità
+  const getMainButtonProps = () => {
+    if (mode === "versus") {
+      return {
+        disabled:
+          myGameWon || myGameOver || !currentGuess.every((c) => c !== null),
+        label: "DEFUSE NOW",
+        onClick: submitGuess,
+      };
+    } else if (mode === "devil" && !hasStarted) {
+      return {
+        disabled: false,
+        label: "START",
+        onClick: () => setHasStarted(true),
+      };
+    } else {
+      return {
+        disabled: gameWon || gameOver || !currentGuess.every((c) => c !== null),
+        label: "DEFUSE NOW",
+        onClick: submitGuess,
+      };
+    }
+  };
 
-  const mainButtonLabel =
-    mode === "devil" && !hasStarted ? "START" : "DEFUSE NOW";
-
-  const mainButtonOnClick =
-    mode === "devil" && !hasStarted ? () => setHasStarted(true) : submitGuess;
+  const mainButtonProps = getMainButtonProps();
 
   // Mostra una schermata di caricamento mentre verifichiamo il cookie
   if (isLoading) {
@@ -406,8 +572,7 @@ function App() {
       </div>
     </div>
   ) : mode === "versus" && isSettingCode ? (
-    // Se è in modalità 1vs1 e il Giocatore 1 deve scegliere il codice
-    // Se non ho ancora un avversario, mostro la lista per sceglierlo
+    // Fase impostazione codice
     !opponent ? (
       <UserList
         socket={socket}
@@ -416,20 +581,123 @@ function App() {
         onGameStart={handleGameStart}
       />
     ) : (
-      <>
-        <VersusSetup
-          tempCode={tempCode}
-          colors={COLORS_BOMB}
-          selectedColor={selectedColor}
-          onSelectColor={setSelectedColor}
-          onSetCodePeg={setCodePeg}
-          onConfirm={confirmSecretCode}
-          onBack={() => setMode(null)}
+      <VersusSetup
+        tempCode={tempCode}
+        colors={COLORS_BOMB}
+        selectedColor={selectedColor}
+        onSelectColor={setSelectedColor}
+        onSetCodePeg={setCodePeg}
+        onConfirm={confirmSecretCode}
+        onBack={() => setMode(null)}
+        isWaiting={myCodeSet && !opponentCodeSet}
+        opponentCodeSet={opponentCodeSet}
+      />
+    )
+  ) : mode === "versus" && !isSettingCode ? (
+    // Fase di gioco versus - mostra due board
+    <div className="page-wrapper">
+      <div className="bomb-container">
+        <div style={{ padding: "12px 16px" }}>
+          <button className="back-menu-btn" onClick={() => setMode(null)}>
+            ← Torna alla scelta modalità
+          </button>
+        </div>
+
+        <BombHeader
+          minutes="00"
+          seconds="00"
+          guessesCount={myGuesses.length}
+          maxTurns={MAX_TURNS}
+          mode={mode}
         />
 
-        {/*<div style={{ color: 'white' }}>Setup contro {opponent} (WIP)</div>*/}
-      </>
-    )
+        {/* Board principale: indovina il codice dell'avversario */}
+        <div style={{ marginBottom: "40px" }}>
+          <h3
+            style={{
+              color: "white",
+              textAlign: "center",
+              marginBottom: "20px",
+              fontFamily: "Orbitron",
+            }}
+          >
+            Indovina il codice di {opponent}
+          </h3>
+          {!myGameWon && !myGameOver ? (
+            <GameBoard
+              guesses={myGuesses}
+              currentGuess={currentGuess}
+              colors={COLORS_BOMB}
+              canPlay={myGuesses.length < MAX_TURNS}
+              onPegClick={addPeg}
+              selectedColor={selectedColor}
+              onSelectColor={setSelectedColor}
+              mainButtonLabel={mainButtonProps.label}
+              mainButtonDisabled={mainButtonProps.disabled}
+              mainButtonOnClick={mainButtonProps.onClick}
+            />
+          ) : (
+            <EndScreen
+              gameWon={myGameWon}
+              gameOverReason={myGameOver ? "turns" : ""}
+              guessesCount={myGuesses.length}
+              secretCode={[]} // Non mostriamo il codice dell'avversario fino alla fine
+              onReset={resetGame}
+              colors={COLORS_BOMB}
+            />
+          )}
+        </div>
+
+        {/* Board secondaria: mostra i tentativi dell'avversario verso il tuo codice */}
+        <div
+          style={{
+            borderTop: "2px solid rgba(255,255,255,0.2)",
+            paddingTop: "30px",
+            marginTop: "30px",
+          }}
+        >
+          <h3
+            style={{
+              color: "white",
+              textAlign: "center",
+              marginBottom: "20px",
+              fontFamily: "Orbitron",
+            }}
+          >
+            {opponent} sta indovinando il tuo codice
+            {opponentGameWon && (
+              <span style={{ color: "#ef4444", marginLeft: "10px" }}>
+                💥 HA VINTO!
+              </span>
+            )}
+            {opponentGameOver && !opponentGameWon && (
+              <span style={{ color: "#10b981", marginLeft: "10px" }}>
+                ✅ HA PERSO!
+              </span>
+            )}
+          </h3>
+          <div className="board-bomb">
+            {opponentGuesses.map((g, i) => (
+              <GuessRow
+                key={i}
+                guess={g.guess}
+                feedback={g.feedback}
+                isCurrent={false}
+                colors={COLORS_BOMB}
+                onPegClick={() => {}}
+              />
+            ))}
+            {opponentGuesses.length === 0 && (
+              <div
+                style={{ color: "white", textAlign: "center", padding: "20px" }}
+              >
+                In attesa del primo tentativo...
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   ) : (
     // Altrimenti, l'utente è loggato e in partita: mostra la schermata di gioco
     <div className="page-wrapper">
@@ -457,9 +725,9 @@ function App() {
             onPegClick={addPeg}
             selectedColor={selectedColor}
             onSelectColor={setSelectedColor}
-            mainButtonLabel={mainButtonLabel}
-            mainButtonDisabled={mainButtonDisabled}
-            mainButtonOnClick={mainButtonOnClick}
+            mainButtonLabel={mainButtonProps.label}
+            mainButtonDisabled={mainButtonProps.disabled}
+            mainButtonOnClick={mainButtonProps.onClick}
           />
         ) : (
           <EndScreen

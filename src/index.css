@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Orbitron:wght@700;900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Orbitron:wght@700;900&display=swap");
 
 * {
   margin: 0;
@@ -13,7 +13,7 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   background: radial-gradient(ellipse at center, #0f0f23 0%, #000 100%);
   min-height: 100vh;
   padding: 20px;
@@ -31,7 +31,6 @@ body {
   border-radius: 12px;
   align-items: center;
   padding: 20px;
-
 }
 
 .page-wrapper {
@@ -93,7 +92,7 @@ body {
 }
 
 .menu-title {
-  font-family: 'Orbitron', monospace;
+  font-family: "Orbitron", monospace;
   font-size: 32px;
   font-weight: 900;
   color: #eab308;
@@ -136,7 +135,7 @@ body {
 
 /* Quarto pulsante (Diavolo) – rosso */
 .mode-menu .menu-btn:nth-child(6) {
-  background: linear-gradient(135deg, #163566, #05214e)
+  background: linear-gradient(135deg, #163566, #05214e);
 }
 .menu-btn:hover {
   transform: translateY(-1px);
@@ -193,7 +192,7 @@ body {
   color: #000;
   padding: 8px 16px;
   border-radius: 20px;
-  font-family: 'Orbitron', monospace;
+  font-family: "Orbitron", monospace;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 1px;
@@ -202,7 +201,7 @@ body {
 }
 
 .title {
-  font-family: 'Orbitron', monospace;
+  font-family: "Orbitron", monospace;
   font-size: 40px;
   font-weight: 900;
   background: linear-gradient(45deg, #eab308, #f59e0b, #ef4444);
@@ -215,7 +214,7 @@ body {
 }
 
 .timer-bomb {
-  font-family: 'Orbitron', monospace;
+  font-family: "Orbitron", monospace;
   font-size: 32px;
   background: linear-gradient(135deg, #ef4444, #dc2626);
   -webkit-background-clip: text;
@@ -228,7 +227,6 @@ body {
 }
 
 @keyframes countdown {
-
   0%,
   100% {
     transform: scale(1);
@@ -367,8 +365,7 @@ body {
 
 .color-btn-bomb.active {
   border-color: #ef4444;
-  box-shadow:
-    0 0 0 4px rgba(239, 68, 68, 0.3),
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3),
     0 16px 32px rgba(239, 68, 68, 0.4);
   transform: scale(1.08);
 }
@@ -381,7 +378,7 @@ body {
   color: white;
   border: none;
   padding: 24px;
-  font-family: 'Orbitron', monospace;
+  font-family: "Orbitron", monospace;
   font-size: 20px;
   font-weight: 900;
   text-transform: uppercase;
@@ -407,7 +404,6 @@ body {
   opacity: 0.7;
 }
 
-
 /* HEADER SETUP 1 VS 1 */
 
 .setup-header {
@@ -417,7 +413,7 @@ body {
 }
 
 .setup-title {
-  font-family: 'Orbitron', monospace;
+  font-family: "Orbitron", monospace;
   font-size: 20px;
   color: #eab308;
   margin-bottom: 8px;
@@ -481,4 +477,14 @@ body {
 .registration-btn:active {
   box-shadow: none;
   background: linear-gradient(200deg, #d86f24, #c74e0d);
+}
+
+/* Animazione spinner per loading */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
